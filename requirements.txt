@@ -1,0 +1,10 @@
+# requirements.txt for PlotNeuralNet
+# Detected imports: only standard library modules (os, sys) and local package `pycore`.
+# No external Python packages were found in the repository's Python files.
+
+# Recommended Python versions (pick one):
+# python>=3.8,<3.12    # suggested: 3.10
+
+# If you later add external libraries, list them here, e.g.:
+# numpy==1.26.4
+# Pillow>=9.0.0
