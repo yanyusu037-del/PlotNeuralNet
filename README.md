@@ -175,5 +175,10 @@ Word 中：插入 → 对象 → 由文件创建（Insert → Object → Create 
     latexmk -pdf -interaction=nonstopmode unet_styled.tex
     ```
 
+    ```powershell
+"c:\Users\1suyanyu\Documents\GitHub\PlotNeuralNet\pyexamples"; ..\.venv\Scripts\python.exe unet_styled.py
+    ```
 
-
+    ```powershell
+cd "c:\Users\1suyanyu\Documents\GitHub\PlotNeuralNet\SUIBE\unet"; & "C:\Users\1suyanyu\AppData\Local\Programs\MiKTeX\miktex\bin\x64\pdflatex.exe" -interaction=nonstopmode unet_styled.tex; & "C:\Users\1suyanyu\AppData\Local\Programs\MiKTeX\miktex\bin\x64\pdflatex.exe" -interaction=nonstopmode unet_styled.tex
+    ```
