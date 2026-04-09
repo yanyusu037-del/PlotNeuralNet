@@ -17,6 +17,9 @@
 
 ### 项目文档
 - [用户须知](../README.md)
+- [参考实现](../pyexamples/unet.py)
+
+```python
 
 
 ## 工程规范
@@ -29,3 +32,9 @@
   - ❌ 不要创建新的虚拟环境（除非.venv不存在）
   - ❌ 不要使用系统全局Python（如 `/usr/bin/python3`）
   - ❌ 不要使用其他位置的Python解释器
+  - ❌ 不要修改核心文件夹下的代码(../pycore)
+
+### 编译规则
+- **强制使用MiKLeX**：必须使用MiKLeX编译LaTeX文件，路径为"D:\Program Files\MiKTeX\miktex\bin\x64\pdflatex.exe"
+- **强制使用powershell**：必须使用powershell执行编译命令
+- **结果文件**：结果输出为一页的pdf文件，若为两页则很可能出现严重错误

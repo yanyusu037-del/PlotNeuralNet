@@ -1,0 +1,199 @@
+
+\documentclass[border=8pt, multi, tikz]{standalone} 
+\usepackage{import}
+\subimport{../../layers/}{init}
+\usetikzlibrary{positioning}
+\usetikzlibrary{3d} %for including external image 
+
+\def\ConvColor{rgb:yellow,5;red,2.5;white,5}
+\def\ConvReluColor{rgb:yellow,5;red,5;white,5}
+\def\PoolColor{rgb:red,1;black,0.3}
+\def\UnpoolColor{rgb:blue,2;green,1;black,0.3}
+\def\FcColor{rgb:blue,5;red,2.5;white,5}
+\def\FcReluColor{rgb:blue,5;red,5;white,4}
+\def\SoftmaxColor{rgb:magenta,5;black,7}   
+\def\SumColor{rgb:blue,5;green,15}
+\usetikzlibrary{calc}
+\def\edgecolor{black}
+
+\newcommand{\copymidarrow}{\tikz \draw[-Stealth,line width=0.8mm,draw={rgb:blue,4;red,1;green,1;black,3}] (-0.3,0) -- ++(0.3,0);}
+
+\begin{document}
+\begin{tikzpicture}
+\tikzstyle{connection}=[ultra thick,every node/.style={sloped,allow upside down},draw=\edgecolor,opacity=0.7]
+\tikzstyle{copyconnection}=[ultra thick,every node/.style={sloped,allow upside down},draw={rgb:blue,4;red,1;green,1;black,3},opacity=0.7]
+
+% --- MSA Adapter style: Frozen vs Trainable ---
+\def\FrozenColor{rgb:gray,3;white,7}          % 冻结块：浅灰色
+\def\AdapterColor{rgb:green,5;white,2}        % Adapter：绿色（可训练）
+\def\InputColor{rgb:purple,5;white,2}         % 输入：紫色
+\def\PromptColor{rgb:orange,5;white,2}        % 提示：橙色
+% ----------------------------------------
+\tikzset{every edge quotes/.append style={font=\large,inner sep=1pt,pos=0.35}}
+\tikzset{depthlabel/.append style={font=\large,yshift=6pt}}
+\tikzset{captionlabel/.append style={font=\large,yshift=-8pt}}
+% Hide dashed lines in box edges by making them invisible
+\tikzset{every edge/.append style={draw=none}}
+
+\pic[shift={ (0,0,0) }] at (0,0,0) 
+    {RightBandedBox={
+        name=input,
+        caption=Image,
+        xlabel={{ 3, 3 }},
+        zlabel=1024,
+        fill=\ConvColor,
+        bandfill=\ConvReluColor,
+        height=36,
+        width={ 1.8 , 1.8 },
+        depth=36
+        }
+    };
+\fill [gray!25, opacity=0.35] (input-south) rectangle (input-north);
+\pic[shift={ (2.2,0,0) }] at (input-east) 
+    {RightBandedBox={
+        name=preproc,
+        caption=Preprocess,
+        xlabel={{ 3, 3 }},
+        zlabel=1024,
+        fill=\ConvColor,
+        bandfill=\ConvReluColor,
+        height=36,
+        width={ 1.8 , 1.8 },
+        depth=36
+        }
+    };
+\fill [gray!25, opacity=0.35] (preproc-south) rectangle (preproc-north);\draw [ultra thick,-Stealth,draw=black,opacity=0.7] (input-east) -- (preproc-west);
+\pic[shift={ (2.2,0,0) }] at (preproc-east) 
+    {RightBandedBox={
+        name=patch_embed,
+        caption=Patch Embed,
+        xlabel={{ 256, 256 }},
+        zlabel=768,
+        fill=\ConvColor,
+        bandfill=\ConvReluColor,
+        height=32,
+        width={ 2.2 , 2.2 },
+        depth=32
+        }
+    };
+\fill [gray!25, opacity=0.35] (patch_embed-south) rectangle (patch_embed-north);\draw [ultra thick,-Stealth,draw=black,opacity=0.7] (preproc-east) -- (patch_embed-west);
+\pic[shift={ (2.5,0,0) }] at (patch_embed-east) 
+    {RightBandedBox={
+        name=vit_blocks,
+        caption=ViT Encoder (12L),
+        xlabel={{ 256, 256 }},
+        zlabel=768,
+        fill=\ConvColor,
+        bandfill=\ConvReluColor,
+        height=34,
+        width={ 3.5 , 3.5 },
+        depth=34
+        }
+    };
+\fill [gray!25, opacity=0.35] (vit_blocks-south) rectangle (vit_blocks-north);\draw [ultra thick,-Stealth,draw=black,opacity=0.7] (patch_embed-east) -- (vit_blocks-west);
+\pic[shift={ (2.5,0,0) }] at (vit_blocks-east) 
+    {Box={
+        name=img_emb,
+        caption=Image Emb,
+        fill=\PoolColor,
+        opacity=0.5,
+        height=34,
+        width=1.8,
+        depth=34
+        }
+    };
+\fill [gray!25, opacity=0.35] (img_emb-south) rectangle (img_emb-north);\draw [ultra thick,-Stealth,draw=black,opacity=0.7] (vit_blocks-east) -- (img_emb-west);
+\pic[shift={ (2.2,-7.5,0) }] at (preproc-south) 
+    {RightBandedBox={
+        name=prompt_points,
+        caption=Points,
+        xlabel={{ 256, 256 }},
+        zlabel=256,
+        fill=\ConvColor,
+        bandfill=\ConvReluColor,
+        height=24,
+        width={ 2.0 , 2.0 },
+        depth=24
+        }
+    };
+\fill [gray!25, opacity=0.35] (prompt_points-south) rectangle (prompt_points-north);
+\pic[shift={ (2.2,0,0) }] at (prompt_points-east) 
+    {RightBandedBox={
+        name=prompt_boxes,
+        caption=Boxes,
+        xlabel={{ 256, 256 }},
+        zlabel=256,
+        fill=\ConvColor,
+        bandfill=\ConvReluColor,
+        height=24,
+        width={ 2.0 , 2.0 },
+        depth=24
+        }
+    };
+\fill [gray!25, opacity=0.35] (prompt_boxes-south) rectangle (prompt_boxes-north);
+\pic[shift={ (2.2,0,0) }] at (prompt_boxes-east) 
+    {RightBandedBox={
+        name=prompt_masks,
+        caption=Masks,
+        xlabel={{ 256, 256 }},
+        zlabel=256,
+        fill=\ConvColor,
+        bandfill=\ConvReluColor,
+        height=24,
+        width={ 2.0 , 2.0 },
+        depth=24
+        }
+    };
+\fill [gray!25, opacity=0.35] (prompt_masks-south) rectangle (prompt_masks-north);
+\pic[shift={ (1.8,0,0) }] at (prompt_masks-east) 
+    {Box={
+        name=prompt_emb,
+        caption=Prompt Emb,
+        fill=\PoolColor,
+        opacity=0.5,
+        height=24,
+        width=1.8,
+        depth=24
+        }
+    };
+\fill [gray!25, opacity=0.35] (prompt_emb-south) rectangle (prompt_emb-north);\draw [ultra thick,-Stealth,draw=black,opacity=0.7] (prompt_masks-east) -- (prompt_emb-west);
+\pic[shift={ (2.5,-3.8,0) }] at (img_emb-south) 
+    {RightBandedBox={
+        name=decoder,
+        caption=MaskDecoder,
+        xlabel={{ 256, 256 }},
+        zlabel=256,
+        fill=\ConvColor,
+        bandfill=\ConvReluColor,
+        height=32,
+        width={ 4.5 , 4.5 },
+        depth=32
+        }
+    };
+\fill [gray!25, opacity=0.35] (decoder-south) rectangle (decoder-north);\draw [ultra thick,-Stealth,draw=black,opacity=0.7] ($(img_emb-south)!0.5!(img_emb-north)$) -- ($(decoder-north)!0.5!(decoder-south)$);\draw [ultra thick,-Stealth,draw=black,opacity=0.7] (prompt_emb-east) -- ($(decoder-west)+(0,-0.3)$);
+\pic[shift={ (2.5,0,0) }] at (decoder-east) 
+    {Box={
+        name=iou_head,
+        caption=IoU Head,
+        fill=\PoolColor,
+        opacity=0.5,
+        height=32,
+        width=1.8,
+        depth=32
+        }
+    };
+\fill [gray!25, opacity=0.35] (iou_head-south) rectangle (iou_head-north);\draw [ultra thick,-Stealth,draw=black,opacity=0.7] (decoder-east) -- (iou_head-west);
+\pic[shift={(2.0,0,0)}] at (iou_head-east) 
+    {Box={
+        name=masks_out,
+        caption=Output Masks,
+        zlabel=256,
+        fill=\SoftmaxColor,
+        height=32,
+        width=2.0,
+        depth=32
+        }
+    };
+\draw [ultra thick,-Stealth,draw=black,opacity=0.7] (iou_head-east) -- (masks_out-west);
+\end{tikzpicture}
+\end{document}

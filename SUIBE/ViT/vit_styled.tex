@@ -1,0 +1,130 @@
+
+\documentclass[border=8pt, multi, tikz]{standalone} 
+\usepackage{import}
+\subimport{../../layers/}{init}
+\usetikzlibrary{positioning}
+\usetikzlibrary{3d} %for including external image 
+
+\def\ConvColor{rgb:yellow,5;red,2.5;white,5}
+\def\ConvReluColor{rgb:yellow,5;red,5;white,5}
+\def\PoolColor{rgb:red,1;black,0.3}
+\def\UnpoolColor{rgb:blue,2;green,1;black,0.3}
+\def\FcColor{rgb:blue,5;red,2.5;white,5}
+\def\FcReluColor{rgb:blue,5;red,5;white,4}
+\def\SoftmaxColor{rgb:magenta,5;black,7}   
+\def\SumColor{rgb:blue,5;green,15}
+\usetikzlibrary{calc}
+\def\edgecolor{black}
+
+\newcommand{\copymidarrow}{\tikz \draw[-Stealth,line width=0.8mm,draw={rgb:blue,4;red,1;green,1;black,3}] (-0.3,0) -- ++(0.3,0);}
+
+\begin{document}
+\begin{tikzpicture}
+\tikzstyle{connection}=[ultra thick,every node/.style={sloped,allow upside down},draw=\edgecolor,opacity=0.7]
+\tikzstyle{copyconnection}=[ultra thick,every node/.style={sloped,allow upside down},draw={rgb:blue,4;red,1;green,1;black,3},opacity=0.7]
+
+% --- ViT style ---
+\def\InputColor{rgb:purple,5;white,2}
+\def\PatchColor{rgb:cyan,5;white,2}
+\def\TransColor{rgb:green,5;white,2}
+\def\HeadColor{rgb:red,5;white,2}
+% ----------------------------------------
+\tikzset{every edge quotes/.append style={font=\large,inner sep=1pt,pos=0.35}}
+\tikzset{depthlabel/.append style={font=\large,yshift=6pt}}
+\tikzset{captionlabel/.append style={font=\large,yshift=-8pt}}
+\tikzset{captionlabel/.append style={xshift=-30pt,yshift=20pt}}
+
+\pic[shift={ (0,0,0) }] at (0,0,0) 
+    {RightBandedBox={
+        name=img_input,
+        caption=Image 224x224,
+        xlabel={{ 3, 3 }},
+        zlabel=224,
+        fill=\ConvColor,
+        bandfill=\ConvReluColor,
+        height=38,
+        width={ 1.5 , 1.5 },
+        depth=38
+        }
+    };
+
+\pic[shift={ (3.0,0,0) }] at (img_input-east) 
+    {RightBandedBox={
+        name=patch_linear,
+        caption=Patch Embed,
+        xlabel={{ 768, 768 }},
+        zlabel=768,
+        fill=\ConvColor,
+        bandfill=\ConvReluColor,
+        height=34,
+        width={ 4 , 4 },
+        depth=34
+        }
+    };
+\draw [ultra thick,-Stealth,draw=black,opacity=0.7] (img_input-east) -- (patch_linear-west);
+\pic[shift={ (2.5,0,0) }] at (patch_linear-east) 
+    {RightBandedBox={
+        name=cls_pos,
+        caption=CLS + Pos,
+        xlabel={{ 768, 768 }},
+        zlabel=197,
+        fill=\ConvColor,
+        bandfill=\ConvReluColor,
+        height=32,
+        width={ 3.2 , 3.2 },
+        depth=32
+        }
+    };
+\draw [ultra thick,-Stealth,draw=black,opacity=0.7] (patch_linear-east) -- (cls_pos-west);
+\pic[shift={ (3.0,0,0) }] at (cls_pos-east) 
+    {RightBandedBox={
+        name=transformer,
+        caption=Transformer $(12 \times L)$,
+        xlabel={{ 768, 768 }},
+        zlabel=768,
+        fill=\ConvColor,
+        bandfill=\ConvReluColor,
+        height=42,
+        width={ 4.5 , 4.5 },
+        depth=42
+        }
+    };
+\draw [ultra thick,-Stealth,draw=black,opacity=0.7] (cls_pos-east) -- (transformer-west);
+\pic[shift={ (2.2,0,0) }] at (transformer-east) 
+    {Box={
+        name=norm,
+        caption=Norm,
+        fill=\PoolColor,
+        opacity=0.5,
+        height=36,
+        width=1.6,
+        depth=36
+        }
+    };
+\draw [ultra thick,-Stealth,draw=black,opacity=0.7] (transformer-east) -- (norm-west);\path (cls_pos-southeast) -- (cls_pos-northeast) coordinate[pos=1.25] (cls_pos-top) ;
+\path (norm-south)  -- (norm-north)  coordinate[pos=1.25] (norm-top) ;
+\draw [copyconnection]  (cls_pos-northeast)  
+-- node {\copymidarrow}(cls_pos-top)
+-- node {\copymidarrow}(norm-top)
+-- node {\copymidarrow} (norm-north);
+
+\pic[shift={(2.0,0,0)}] at (norm-east) 
+    {Box={
+        name=head,
+        caption=MLP Head 1000,
+        zlabel=1000,
+        fill=\SoftmaxColor,
+        height=38,
+        width=1.8,
+        depth=38
+        }
+    };
+\draw [ultra thick,-Stealth,draw=black,opacity=0.7] (norm-east) -- (head-west);\path (transformer-southeast) -- (transformer-northeast) coordinate[pos=1.25] (transformer-top) ;
+\path (head-south)  -- (head-north)  coordinate[pos=1.25] (head-top) ;
+\draw [copyconnection]  (transformer-northeast)  
+-- node {\copymidarrow}(transformer-top)
+-- node {\copymidarrow}(head-top)
+-- node {\copymidarrow} (head-north);
+
+\end{tikzpicture}
+\end{document}

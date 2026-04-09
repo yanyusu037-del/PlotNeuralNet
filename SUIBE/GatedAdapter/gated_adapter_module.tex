@@ -1,0 +1,118 @@
+
+\documentclass[border=8pt, multi, tikz]{standalone} 
+\usepackage{import}
+\subimport{../../layers/}{init}
+\usetikzlibrary{positioning}
+\usetikzlibrary{3d} %for including external image 
+
+\def\ConvColor{rgb:yellow,5;red,2.5;white,5}
+\def\ConvReluColor{rgb:yellow,5;red,5;white,5}
+\def\PoolColor{rgb:red,1;black,0.3}
+\def\UnpoolColor{rgb:blue,2;green,1;black,0.3}
+\def\FcColor{rgb:blue,5;red,2.5;white,5}
+\def\FcReluColor{rgb:blue,5;red,5;white,4}
+\def\SoftmaxColor{rgb:magenta,5;black,7}   
+\def\SumColor{rgb:blue,5;green,15}
+\usetikzlibrary{calc}
+\def\edgecolor{black}
+
+\newcommand{\copymidarrow}{\tikz \draw[-Stealth,line width=0.8mm,draw={rgb:blue,4;red,1;green,1;black,3}] (-0.3,0) -- ++(0.3,0);}
+
+\begin{document}
+\begin{tikzpicture}
+\tikzstyle{connection}=[ultra thick,every node/.style={sloped,allow upside down},draw=\edgecolor,opacity=0.7]
+\tikzstyle{copyconnection}=[ultra thick,every node/.style={sloped,allow upside down},draw={rgb:blue,4;red,1;green,1;black,3},opacity=0.7]
+\tikzset{every edge quotes/.append style={font=\large,inner sep=1pt,pos=0.35}}\tikzset{depthlabel/.append style={font=\large,yshift=6pt}}\tikzset{captionlabel/.append style={font=\large,yshift=-8pt}}\tikzset{every edge/.append style={draw=black}}
+% --- Gated Adapter Module Style ---
+\def\FrozenColor{gray!25}              % 冻结权重：浅灰色
+\def\AdapterColor{green!60}            % Adapter可训练：绿色
+\def\GateColor{blue!60}                % 门控：蓝色
+\def\ActivColor{orange!50}             % 激活函数：橙色
+% ----------------------------------------
+
+\pic[shift={ (0,0,0) }] at (0,0,0) 
+    {Box={
+        name=input,
+        caption=Input,
+        fill=\PoolColor,
+        opacity=0.5,
+        height=28,
+        width=1.5,
+        depth=28
+        }
+    };
+\fill [gray!25, opacity=0.35] (input-south) rectangle (input-north);\node [text=black, font=\Large, inner sep=0] at ($(input-south) + (-0.3, -0.5)$) {768};
+\pic[shift={ (3.2,0,0) }] at (input-east) 
+    {Box={
+        name=down_proj,
+        caption=Down,
+        fill=\PoolColor,
+        opacity=0.5,
+        height=26,
+        width=1.5,
+        depth=26
+        }
+    };
+\fill [\AdapterColor, opacity=0.6] (down_proj-south) rectangle (down_proj-north);\node [text=black, font=\Large, inner sep=0] at ($(down_proj-south) + (-0.3, -0.5)$) {192};\draw [ultra thick,-Stealth,draw=black,opacity=0.7] (input-east) -- (down_proj-west);
+\pic[shift={ (2.3,0,0) }] at (down_proj-east) 
+    {Box={
+        name=relu,
+        caption=ReLU,
+        fill=\PoolColor,
+        opacity=0.5,
+        height=22,
+        width=1.5,
+        depth=22
+        }
+    };
+\fill [\ActivColor, opacity=0.5] (relu-south) rectangle (relu-north);\draw [ultra thick,-Stealth,draw=black,opacity=0.7] (down_proj-east) -- (relu-west);
+\pic[shift={ (3.2,0,0) }] at (relu-east) 
+    {Box={
+        name=up_proj,
+        caption=Up,
+        fill=\PoolColor,
+        opacity=0.5,
+        height=26,
+        width=1.5,
+        depth=26
+        }
+    };
+\fill [\AdapterColor, opacity=0.6] (up_proj-south) rectangle (up_proj-north);\node [text=black, font=\Large, inner sep=0] at ($(up_proj-south) + (-0.3, -0.5)$) {768};\draw [ultra thick,-Stealth,draw=black,opacity=0.7] (relu-east) -- (up_proj-west);
+\pic[shift={ (0.5,-1.8,0) }] at (down_proj-south) 
+    {Box={
+        name=gate,
+        caption=Gate,
+        fill=\PoolColor,
+        opacity=0.5,
+        height=8,
+        width=1.2,
+        depth=8
+        }
+    };
+\fill [\GateColor, opacity=0.75] (gate-south) rectangle (gate-north);\draw [ultra thick,-Stealth,draw=blue,opacity=0.9] (gate-east) -- ++(1.0,0) node [midway, above] {mlp} coordinate (gate-mlp);\draw [ultra thick,-Stealth,draw=blue,opacity=0.9] (gate-south) -- ++(0,-1.0) node [midway, left] {depth} coordinate (gate-depth);\draw [ultra thick,-Stealth,draw=blue,opacity=0.9] (gate-west) -- ++(-1.0,-0.15) node [midway, above] {space} coordinate (gate-space);\draw [thick,draw=blue,opacity=0.9] (gate-space) -- (add-west);\draw [thick,draw=blue,opacity=0.9] (gate-mlp) -- (add-west);\draw [thick,draw=blue,opacity=0.9] (gate-depth) -- (add-west);
+\pic[shift={ (2.2,0,0) }] at (up_proj-east) 
+    {Box={
+        name=add,
+        caption=+Res,
+        fill=\PoolColor,
+        opacity=0.5,
+        height=28,
+        width=2.2,
+        depth=28
+        }
+    };
+\fill [\AdapterColor, opacity=0.3] (add-south) rectangle (add-north);\draw [ultra thick,-Stealth,draw=black,opacity=0.7] (up_proj-east) -- (add-west);\path (input-east) -- ++(0,2.5) coordinate (input-top) ;\path (add-west) -- ++(0,2.5) coordinate (add-top) ;\draw [ultra thick,-Stealth,draw=green,opacity=0.6] (input-east) -- (input-top) -- (add-top) -- (add-west);
+\pic[shift={ (3.2,0,0) }] at (add-east) 
+    {Box={
+        name=output,
+        caption=Output,
+        fill=\PoolColor,
+        opacity=0.5,
+        height=28,
+        width=1.5,
+        depth=28
+        }
+    };
+\fill [gray!25, opacity=0.35] (output-south) rectangle (output-north);\node [text=black, font=\Large, inner sep=0] at ($(output-south) + (-0.3, -0.5)$) {768};\draw [ultra thick,-Stealth,draw=black,opacity=0.7] (add-east) -- (output-west);
+\end{tikzpicture}
+\end{document}

@@ -182,3 +182,188 @@ Word 中：插入 → 对象 → 由文件创建（Insert → Object → Create 
     ```powershell
 cd "c:\Users\1suyanyu\Documents\GitHub\PlotNeuralNet\SUIBE\unet"; & "C:\Users\1suyanyu\AppData\Local\Programs\MiKTeX\miktex\bin\x64\pdflatex.exe" -interaction=nonstopmode unet_styled.tex; & "C:\Users\1suyanyu\AppData\Local\Programs\MiKTeX\miktex\bin\x64\pdflatex.exe" -interaction=nonstopmode unet_styled.tex
     ```
+
+### ViT 与 MSA 架构图绘制问题（2024年）
+
+#### ViT 多页 PDF 问题
+
+**问题描述**：使用 `\shortstack{..\\..}` 编写复杂标题时，编译出现 2 页 PDF（实际只有 1 页内容），错误信息为 "Extra }, or forgotten \endgroup"。
+
+**根本原因**：
+- `\shortstack{Patch Embed\\196x768}` 中嵌套的反斜杠转义和括号计数不匹配
+- LaTeX 在处理多层嵌套的特殊字符时括号计数出错
+- 虽然 PDF 仍可生成，但页数计算错误导致 pdflatex 认为有额外页面
+
+**解决方案**：
+1. 将复杂标题替换为简单文本：
+   ```python
+   # 改前（导致2页）：
+   caption=r'{\shortstack{Patch Embed\\196x768}}'
+   
+   # 改后（1页）：
+   caption='Patch Embed'
+   ```
+
+2. 使用 LaTeX 数学模式表达乘号：
+   ```python
+   caption=r'Transformer $(12 \times L)$'  # 而不是 L \times 或 \\times
+   ```
+
+3. 验证编译：
+   - 检查输出是否为 "1 page" 而不是 "2 pages"
+   - 使用参考实现（如 UNet）作为对比基准
+
+#### 并列模块重叠问题
+
+**问题描述**：当在同一图中绘制多个并行的编码器/解码器分支时，模块容易重叠或布局混乱。
+
+**解决方案**：
+1. **分层布局**：将并行分支分配到不同行：
+   - ROW 1：上层（主编码路径）
+   - ROW 2：下层（提示编码路径）
+   - ROW 3：底层（解码合并层）
+
+2. **行间距控制**：使用 y 坐标偏移调整行间距：
+   ```python
+   # 第二行，距上层 7.5 单位
+   to_ConvConvRelu(name='prompt_points', ..., offset='(2.2,-7.5,0)', to='(preproc-south)')
+   
+   # 第三行，距上层 3.8 单位
+   to_ConvConvRelu(name='decoder', ..., offset='(2.5,-3.8,0)', to='(img_emb-south)')
+   ```
+
+3. **清晰的数据流线**：用显式的 `\draw` 命令连接分支：
+   ```python
+   r"""\draw [ultra thick,-Stealth,draw=black,opacity=0.7] (img_emb-south) -- (decoder-north);"""
+   r"""\draw [ultra thick,-Stealth,draw=black,opacity=0.7] (prompt_emb-east) -- ($(decoder-west)+(0,-0.3)$);"""
+   ```
+
+#### 嵌套 TikZ 命令问题
+
+**问题描述**：使用 `to_connection()` 和 `to_skip()` 辅助函数时，生成的代码包含嵌套 `\tikz` 命令（如 `\copymidarrow`），导致"TeX capacity exceeded"或括号不匹配错误。
+
+**解决方案**：
+1. 避免使用生成嵌套 TikZ 的辅助函数
+2. 直接编写 `\draw` 命令：
+   ```python
+   # 避免使用：
+   # to_connection("node1", "node2")
+   # to_skip(of='node1', to='node2', pos=1.25)
+   
+   # 改用直接绘制：
+   r"""\draw [ultra thick,-Stealth,draw=black,opacity=0.7] (node1-east) -- (node2-west);"""
+   ```
+
+3. 确保 `\edgecolor` 在所有 TikZ 样式定义**之前**定义：
+   ```python
+   r"""\usetikzlibrary{calc}
+\def\edgecolor{black}
+""",  # 放在 to_begin() 前面
+   to_begin(),
+   ```
+
+#### 推荐最佳实践
+
+1. **参考现有实现**：使用已验证的 UNet、UNet_styled 作为模板
+2. **逐步构建**：先构建单行（如仅编码器），再添加分支
+3. **频繁编译测试**：每添加主要部分后立即编译，早期发现问题
+4. **避免过度嵌套**：使用 `-Stealth` 箭头风格和 `copyconnection` 样式，但不要嵌套 `\tikz` 命令
+5. **保持简洁**：复杂标题使用纯文本，数学符号用 LaTeX 数学模式
+6. **验证单页输出**：确保最终 PDF 为 1 页（编译输出应为 "1 page"）
+
+### MSA Adapter vs LoRA 架构对比（2024年）
+
+#### Adapter 方法（MSA Adapter - `msa_styled.py`）
+
+**设计理念**：
+- 在预训练模型的前馈层后插入小型瓶颈模块（Adapter）
+- 冻结所有 SAM 原始权重（ImageEncoderViT、PromptEncoder、MaskDecoder）为灰色
+- 仅 Adapter 层可训练
+
+**参数量**：
+- 冻结权重：~71M（SAM-B）
+- 可训练参数：~0.3M（Adapter）
+- 总参数：~71.3M
+
+**图示特点**：
+- 灰色块：所有冻结的预训练组件
+- 黑色箭头：数据流
+- 输出图尺寸：1 页 PDF (598.6pt, 40,937 字节)
+
+#### LoRA 方法（MSA LoRA - `msa_lora_styled.py`）
+
+**设计理念**：
+- 在多头注意力的 Q、K、V 投影层中注入低秩分解矩阵
+- LoRA 模块 = 两个秩 $r$ 的矩阵分解：$W_{new} = W_{old} + AB^T$
+- 冻结所有原始权重，仅训练低秩矩阵 A 和 B
+
+**参数量**：
+- 冻结权重：~71M（SAM-B）
+- LoRA 参数：~0.5M（rank=8 in ViT, rank=4 in decoder）
+- 总参数：~71.5M
+- 相比 Adapter 多约 67% 参数，但分布更均匀
+
+**图示特点**：
+- 灰色块：所有冻结的原始权重
+- 红色小方块：LoRA 注入点（通过虚线箭头连接）
+- 红色虚线：表示 LoRA 参数的旁路连接
+- 输出图尺寸：1 页 PDF (635.6pt, 66,306 字节)
+
+#### 方法对比表
+
+| 特性 | Adapter | LoRA |
+|------|---------|------|
+| **参数位置** | 前馈层后 | Attention Q,K,V |
+| **训练成本** | 中等（顺序添加） | 较低（矩阵分解） |
+| **推理延迟** | +5-10% | 接近零（可融合） |
+| **参数量** | 0.3M | 0.5M |
+| **可微调层数** | 少（仅 Adapter） | 多（所有 Attention） |
+| **与原权重兼容** | 完全兼容 | 需要融合权重 |
+| **适用场景** | 一般微调 | 多任务学习/知识蒸馏 |
+
+#### 生成命令
+
+**Adapter 版本**（灰色冻结块标记）：
+```powershell
+cd d:\PlotNeuralNet\pyexamples
+..\.venv\Scripts\python.exe msa_styled.py
+# 输出：SUIBE/MSA/msa_styled.tex → msa_styled.pdf
+```
+
+**LoRA 版本**（灰色冻结块 + 红色 LoRA 注入点）：
+```powershell
+cd d:\PlotNeuralNet\pyexamples
+..\.venv\Scripts\python.exe msa_lora_styled.py
+# 输出：SUIBE/MSA_LoRA/msa_lora_styled.tex → msa_lora_styled.pdf
+```
+
+**编译**（两个版本都采用相同流程）：
+```powershell
+cd 'D:\PlotNeuralNet\SUIBE\MSA'       # 或 MSA_LoRA
+& 'D:\Program Files\MiKTeX\miktex\bin\x64\pdflatex.exe' -interaction=nonstopmode msa_[styled|lora_styled].tex
+```
+
+#### 设计要点
+
+1. **冻结块可视化**：两个版本都使用 `\draw [ultra thick, dashed, draw=gray, opacity=0.8]` 用**灰色虚线边框**标识冻结块
+   - 优点：不遮挡块本身的颜色，清晰展示参数冻结状态
+   - 代码示例：
+   ```python
+   to_ConvConvRelu(name='vit_blocks', ...)
+   r"""\draw [ultra thick, dashed, draw=gray, opacity=0.8] (vit_blocks-south) rectangle (vit_blocks-north);"""
+   ```
+
+2. **LoRA 注入指示**：使用小型红色实心块表示 LoRA 参数，实心红色箭头连接
+   - 位置调整避免与主块重叠
+   - 代码示例：
+   ```python
+   to_Pool(name='lora_qkv', offset='(3.8,2.2,0)', to='(vit_blocks-west)', ...)
+   r"""\fill[LoRAColor] (lora_qkv-south) rectangle (lora_qkv-north);"""
+   r"""\draw [ultra thick,-Stealth,draw=red,opacity=0.9] (lora_qkv-southwest) -- (vit_blocks-north);"""
+   ```
+
+3. **图层间隔**：
+   - Adapter 版本：598.6pt（1 页）
+   - LoRA 版本：679.5pt（1 页，因 LoRA 注入点额外占用空间）
+
+4. **图例标注**：底部添加清晰的图例，标注参数分布
